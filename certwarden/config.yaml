@@ -1,0 +1,21 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
+name: CertWarden 
+version: "0.0.1"
+slug: certwarden
+description: Home Assistant add-on to retrieve and renew certs for Home Assistant from local CertWarden service
+url: "https://github.com/Sherd21/ha-addons/tree/main/certwarden"
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+init: false
+map:
+  - share:rw
+  - ssl:rw
+options:
+  message: "Hello world...123"
+schema:
+  message: "str?"
+# image: "ghcr.io/home-assistant/{arch}-addon-example"

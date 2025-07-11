@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ls -lah /ssl > /share/example_addon_output1.txt
