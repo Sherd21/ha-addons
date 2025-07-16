@@ -1,0 +1,124 @@
+#!/usr/bin/with-contenv bashio
+
+# read addon parameters
+
+# set the check period
+# hourly|daily|weekly|monthly
+case "$(bashio::config 'check_period')" in
+  "hourly")
+    CHECK_PERIOD="1h"
+    ;;
+  "daily")
+    CHECK_PERIOD="1d"
+    ;;
+  "weekly")
+    CHECK_PERIOD="7d"
+    ;;
+  "monthly")
+    CHECK_PERIOD="30d"
+    ;;
+  *)
+    CHECK_PERIOD="1d"
+    ;;
+esac
+
+SERVER=$(bashio::config 'server')
+CERT_NAME=$(bashio::config 'cert_name')
+CERT_APIKEY=$(bashio::config 'cert_apikey')
+KEY_APIKEY=$(bashio::config 'key_apikey')
+
+# Home Assistant certificate and key paths
+CERT_PATH="/ssl/fullchain.pem"
+KEY_PATH="/ssl/privkey.pem"
+CERT_OWNER="root:root"
+CERT_PERMISSIONS="644"
+KEY_PERMISSIONS="600"
+TMP_PATH="/tmp/tempcerts"
+
+##### functions ##### ==================
+
+# check wget output to handle different network and authentication errors
+error_check() {
+    if echo "$WGET_OUTPUT" | grep -q "bad address"; then
+        bashio::log.error "Unable to resolve the server '$SERVER'. Please check the server name."
+        exit 1
+    fi
+    if echo "$WGET_OUTPUT" | grep -q "timed out"; then
+        bashio::log.error "Timeout for server '$SERVER'. Please check the server name or IP."
+        exit 1
+    fi
+    if echo "$WGET_OUTPUT" | grep -q "unable to resolve"; then
+        bashio::log.error "Unable to resolve the server '$SERVER'. Please check the server name."
+        exit 1
+    fi
+    HTTP_STATUSCODE=$(echo "$WGET_OUTPUT" | awk '/^  HTTP/{print $2}')
+    if [ "$HTTP_STATUSCODE" != "200" ]; then
+        HTTP_ERRORCODE=$(echo "$WGET_OUTPUT" | awk '/^  HTTP/{$1=""; print $0}')
+        bashio::log.error "Failed to fetch the certificate and chain. HTTP error code: $HTTP_ERRORCODE"
+        exit 1
+    fi
+}
+
+# main function to check certificates
+certificate_check() {
+
+    # Loggin on a script start
+    bashio::log.info "Starting the certificates check..."
+
+    # Create temp directory for certs and timestamp directory if they don't exist
+    mkdir -p $TMP_PATH
+
+    # continue script execution on error (handling wget connect issues)
+    set +e
+
+    # trying to fetch certificate and chain from CertWarden
+    WGET_OUTPUT=$(wget "https://$SERVER/certwarden/api/v1/download/certificates/$CERT_NAME" --header="X-API-Key: $CERT_APIKEY" -O "$TMP_PATH/ha-ssl.pem" --timeout=5 --tries 1 --server-response 2>&1)
+    error_check "$WGET_OUTPUT"
+
+    # trying to fetch private key from CertWarden
+    WGET_OUTPUT=$(wget "https://$SERVER/certwarden/api/v1/download/privatekeys/$CERT_NAME" --header="X-API-Key: $KEY_APIKEY" -O "$TMP_PATH/ha-ssl.key" --timeout=5 --tries 1 --server-response 2>&1)
+    error_check "$WGET_OUTPUT"
+
+    # resume stoping script on error
+    set -e
+
+    # Verify that the files are not empty
+    if [ ! -s "$TMP_PATH/ha-ssl.pem" ] || [ ! -s "$TMP_PATH/ha-ssl.key" ]; then
+        bashio::log.error "One or more downloaded files are empty"
+        exit 1
+    fi
+
+    # Compare the new certificate with the existing one
+    if ! cmp -s "$CERT_PATH" "$TMP_PATH/ha-ssl.pem"; then
+        # If different, update the Home Assistant certificate and key
+        cp -f "$TMP_PATH/ha-ssl.pem" "$CERT_PATH"
+        cp -f "$TMP_PATH/ha-ssl.key" "$KEY_PATH"
+
+        # Set ownership and permissions
+        chown $CERT_OWNER "$CERT_PATH" "$KEY_PATH"
+        chmod $CERT_PERMISSIONS "$CERT_PATH"
+        chmod $KEY_PERMISSIONS "$KEY_PATH"
+
+        bashio::log.info "Certificate and key updated, restart Home Assistant when you have time."
+    else
+        bashio::log.info "Certificate is already up to date."
+    fi
+
+    # Clean up temporary files
+    rm -rf $TMP_PATH
+
+    # Log the last run time
+    bashio::log.info "Certificates check has finished at: $(date)"
+}
+
+##### ==================
+
+# Main cycle
+while true; do
+
+    certificate_check
+
+    bashio::log.yellow "Sleeping for $CHECK_PERIOD"
+    sleep "$CHECK_PERIOD"
+
+done

@@ -1,0 +1,28 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
+name: CertWarden client for Home Assistant
+version: "1.0.0"
+slug: certwarden
+description: CertWarden client add-on to retrieve and renew certs for Home Assistant from local CertWarden service (https://www.certwarden.com)
+url: "https://github.com/Sherd21/ha-addons/tree/main/certwarden-ha-client"
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+init: false
+apparmor: true
+map:
+  - ssl:rw
+options:
+  check_period: daily
+  server: null
+  cert_name: null
+  cert_apikey: null
+  key_apikey: null
+schema:
+  check_period: list(hourly|daily|weekly|monthly)
+  server: str
+  cert_name: str
+  cert_apikey: password
+  key_apikey: password

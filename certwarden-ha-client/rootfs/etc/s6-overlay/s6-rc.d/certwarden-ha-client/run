@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv bashio
+
+# Start the service
+exec /usr/bin/certwarden-ha-client

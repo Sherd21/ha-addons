@@ -1,0 +1,16 @@
+configuration:
+  check_period:
+    name: Check period
+    description: How often add-on should check for certificate update.
+  server:
+    name: Server
+    description: CertWarden server name (or IP) and port. E.g. "certwarden.example.com:4055"
+  cert_name:
+    name: Certificate name
+    description: Name of certificate to retrieve from CertWarden
+  cert_apikey:
+    name: Certificate API key
+    description: Certificate API access key
+  key_apikey:
+    name: Private API key
+    description: Private key API access key

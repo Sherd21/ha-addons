@@ -1,0 +1,25 @@
+#include <tunables/global>
+
+profile certwarden-ha-client flags=(complain) {
+
+    # Allow execution of binaries
+    /bin/echo ix,
+    /bin/mkdir ix,
+    /bin/cp ix,
+    /bin/chown ix,
+    /bin/chmod ix,
+    /bin/rm ix,
+    /bin/sleep ix,
+
+    /usr/bin/** ix,
+    /etc/s6-overlay/s6-rc.d/** ix,
+
+    # Allow access to service-specific files
+    /ssl/** rw,
+
+    # Temporary file access
+    /tmp/** rw,
+
+    # Logging
+    /var/log/** rw
+}
