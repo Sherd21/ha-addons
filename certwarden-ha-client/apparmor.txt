@@ -1,6 +1,6 @@
 #include <tunables/global>
 
-profile certwarden-ha-client flags=(complain) {
+profile certwarden-ha-client {
 
     # Allow execution of binaries
     /bin/echo ix,
