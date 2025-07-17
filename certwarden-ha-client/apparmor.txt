@@ -3,6 +3,7 @@
 profile certwarden-ha-client {
 
     # Allow execution of binaries
+    /bin/sh ix,
     /bin/echo ix,
     /bin/mkdir ix,
     /bin/cp ix,
@@ -15,6 +16,7 @@ profile certwarden-ha-client {
     /etc/s6-overlay/s6-rc.d/** ix,
 
     # Allow access to service-specific files
+    /init r,
     /ssl/** rw,
 
     # Temporary file access
