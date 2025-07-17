@@ -1,27 +1,30 @@
 #include <tunables/global>
 
-profile certwarden-ha-client {
+profile certwarden-ha-client flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
 
-    # Allow execution of binaries
-    /bin/sh ix,
-    /bin/echo ix,
-    /bin/mkdir ix,
-    /bin/cp ix,
-    /bin/chown ix,
-    /bin/chmod ix,
-    /bin/rm ix,
-    /bin/sleep ix,
+  # Capabilities
+  file,
+  signal (send) set=(kill,term,int,hup,cont),
 
-    /usr/bin/** ix,
-    /etc/s6-overlay/s6-rc.d/** ix,
+  # S6-Overlay
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /dev/tty rw,
 
-    # Allow access to service-specific files
-    /init r,
-    /ssl/** rw,
+  # Bashio
+  /usr/lib/bashio/** ix,
+  /tmp/** rwk,
 
-    # Temporary file access
-    /tmp/** rw,
+  # Access to options.json and other files within your addon
+  /ssl/** rw,
 
-    # Logging
-    /var/log/** rw,
 }
