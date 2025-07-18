@@ -34,13 +34,19 @@ CW_CLIENT_0_CERTCHAIN_PEM_FILENAME="fullchain.pem"
 # CW_CLIENT_0_KEY_PEM_FILENAME	- filename to save the key pem as (default for Home Assistant is "privkey.pem")
 CW_CLIENT_0_KEY_PEM_FILENAME="privkey.pem"
 
-# CW_CLIENT_BIND_PORT			- port, the addon will use to listen for certificate updates. (default is 5055)
+# CW_CLIENT_BIND_PORT			- port, the addon will use to listen for certificate updates. (default is 5055). At the moment, CertWarden server doesn't support customer ports and support only 5055 for client.
 # CW_CLIENT_BIND_PORT=5055
 
 ### Optional parameters
 
 # CW_CLIENT_0_FILE_UPDATE_TIME_START		- 24-hour time when window opens to write key/cert updates to filesystem
+# CW_CLIENT_0_FILE_UPDATE_TIME_START=00:01
+CW_CLIENT_0_KEY_APIKEY=$(bashio::config 'certificate_update_window_start')
+
 # CW_CLIENT_0_FILE_UPDATE_TIME_END			- 24-hour time when window closes to write key/cert updates to filesystem
+# CW_CLIENT_0_FILE_UPDATE_TIME_END=23:59
+CW_CLIENT_0_KEY_APIKEY=$(bashio::config 'certificate_update_window_end')
+
 # CW_CLIENT_0_FILE_UPDATE_DAYS_OF_WEEK	- Day(s) of the week to write updated key/cert to filesystem (blank is any) - separate multiple using spaces
 
 
