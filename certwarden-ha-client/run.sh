@@ -41,11 +41,11 @@ CW_CLIENT_0_KEY_PEM_FILENAME="privkey.pem"
 
 # CW_CLIENT_0_FILE_UPDATE_TIME_START		- 24-hour time when window opens to write key/cert updates to filesystem
 # CW_CLIENT_0_FILE_UPDATE_TIME_START=00:01
-CW_CLIENT_0_KEY_APIKEY=$(bashio::config 'certificate_update_window_start')
+CW_CLIENT_0_FILE_UPDATE_TIME_START=$(bashio::config 'certificate_update_window_start')
 
 # CW_CLIENT_0_FILE_UPDATE_TIME_END			- 24-hour time when window closes to write key/cert updates to filesystem
 # CW_CLIENT_0_FILE_UPDATE_TIME_END=23:59
-CW_CLIENT_0_KEY_APIKEY=$(bashio::config 'certificate_update_window_end')
+CW_CLIENT_0_FILE_UPDATE_TIME_END=$(bashio::config 'certificate_update_window_end')
 
 # CW_CLIENT_0_FILE_UPDATE_DAYS_OF_WEEK	- Day(s) of the week to write updated key/cert to filesystem (blank is any) - separate multiple using spaces
 
@@ -60,6 +60,8 @@ export CW_CLIENT_0_CERT_APIKEY
 export CW_CLIENT_0_CERT_PATH
 export CW_CLIENT_0_CERTCHAIN_PEM_FILENAME
 export CW_CLIENT_0_KEY_PEM_FILENAME
+export CW_CLIENT_0_FILE_UPDATE_TIME_START
+export CW_CLIENT_0_FILE_UPDATE_TIME_END
 
 bashio::log.info "Setting CW_CLIENT_SERVER_ADDRESS to: ${CW_CLIENT_SERVER_ADDRESS}"
 bashio::log.info "Setting CW_CLIENT_0_CERT_NAME to: ${CW_CLIENT_0_CERT_NAME}"

@@ -24,8 +24,15 @@ The easiest way to do that is by installing [Studio Code Server](https://github.
 
 ## Configuration options
 
-- **Check period:** This parameter defines how often the add-on check certificate status (hourly, daily, weekly, or monthly). Default is daily.
-- **Server:** CertWarden server name (or IP) and port. E.g. "certwarden.example.com:4055"
+- **Server:** DNS name of the server. Must start with https and have a valid ssl certificate. (E.g. "https://certwarden.example.com:4055")
+- **Server Communication key:** base64 raw url encoding of AES key used for communication between server and client (generate one on server)
 - **Certificate name:** Name of certificate to retrieve from CertWarden
+- **Key name:** Name of certificate to retrieve from CertWarden
 - **Certificate API key:** Certificate API access key
 - **Private API key:** Private key API access key
+  certificate_update_window_start:
+  name: Update window start time
+  description: 24-hour time when window opens to write key/cert updates to filesystem
+  certificate_update_window_end:
+  name: Update window end time
+  description: 24-hour time when window closes to write key/cert updates to filesystem
