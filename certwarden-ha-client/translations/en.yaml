@@ -1,0 +1,27 @@
+configuration:
+  server:
+    name: Server
+    description: DNS name of the server. Must start with https and have a valid ssl certificate. (E.g. "https://certwarden.example.com:4055")
+  server_communication_key:
+    name: Server Communication key
+    description: base64 raw url encoding of AES key used for communication between server and client (generate one on server)
+  certificate_name:
+    name: Certificate name
+    description: Name of certificate to retrieve from CertWarden
+  key_name:
+    name: Key name
+    description: Name of certificate to retrieve from CertWarden
+  certificate_apikey:
+    name: Certificate API key
+    description: Certificate API access key
+  key_apikey:
+    name: Private API key
+    description: Private key API access key
+  certificate_update_window_start:
+    name: Update window start time
+    description: 24-hour time when window opens to write key/cert updates to filesystem
+  certificate_update_window_end:
+    name: Update window end time
+    description: 24-hour time when window closes to write key/cert updates to filesystem
+network:
+  5055/tcp: Port, the addon will listen on for certificate updates. Default is 5055. (At the moment, CertWarden server doesn't support custom ports. 5055/TCP should be used.)
