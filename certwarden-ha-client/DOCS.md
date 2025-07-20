@@ -20,7 +20,7 @@ After installation, first step is to fill the Configuration options:
   - Click **Generate** button.
   - Copy **Client AES Key** value - this is your Server Communication key.
   - Fill **HTTPS Address of CertWarden Client** field with Home Assistant server name _(e.g. homeassistant.example.com)_. That will tell CertWarden where to send signal when certificate is updated.
-  ![Generating the client AES key in CertWarden](post_processing.png)
+  ![Generating the client AES key in CertWarden](https://raw.githubusercontent.com/Sherd21/ha-addons/main/certwarden-ha-client/post_processing.png)
 - **Certificate name:** Name of certificate to retrieve from CertWarden (from CertWarden certificate page).
 - **Key name:** Name of certificate key to retrieve from CertWarden (from CertWarden key page)
 - **Certificate API key:** Certificate API key (from CertWarden certificate page)
@@ -35,7 +35,8 @@ The add-on will try to retrieve the certificate right away and compare it with t
 After that, the add-on starts to listen on port 5055/tcp for certificate updates from a CertWarden server.
 When CertWarden updates the certificate, it sends new information to add-on automatically.
 
-> **Important:** Home Assistant doesn't use new certificate without a restart. The add-on won't restart HA automatically, so you need to do that manually. Normally, certificates are renewed about a month before expiration date so you would have enought time.
+> [!IMPORTANT] 
+> Home Assistant doesn't use new certificate without a restart. The add-on won't restart HA automatically, so you need to do that manually. Normally, certificates are renewed about a month before expiration date so you would have enought time.
 
 ### Enable SSL in Home Assistant
 
