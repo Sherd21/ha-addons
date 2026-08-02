@@ -1,0 +1,6 @@
+# This repository builds Linux containers. A CRLF checkout produces a run.sh the
+# container cannot execute ("bad interpreter: /usr/bin/with-contenv bashio^M"),
+# so force LF for everything textual regardless of the cloning platform.
+* text=auto eol=lf
+
+*.png binary

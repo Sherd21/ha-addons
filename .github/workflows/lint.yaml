@@ -1,0 +1,70 @@
+name: Lint
+
+# Runs on every branch, not just main. These mistakes are cheap to catch and
+# expensive to catch late: a malformed workflow file is rejected by GitHub
+# outright, so it cannot be validated by pushing it to main and hoping.
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    name: Actionlint
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Lint workflow files
+        # Catches what YAML validation cannot: bad action inputs, bad expression
+        # syntax, and shellcheck over each run: block. Notably it reports an
+        # empty GitHub expression, which is a parse error that invalidates the
+        # whole workflow file even inside a shell comment -- expressions are
+        # substituted before the shell ever sees the script.
+        # Pinned by digest; a linter has no business auto-updating itself.
+        run: |
+          docker run --rm -v "${PWD}:/repo" -w /repo \
+            rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    name: Shellcheck
+    strategy:
+      matrix:
+        addon:
+          - certwarden-ha-client
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Run shellcheck
+        # run.sh carries a `#!/usr/bin/with-contenv bashio` shebang, which
+        # defeats shellcheck's shell auto-detection. The file declares
+        # `# shellcheck shell=bash` to compensate.
+        run: shellcheck ${{ matrix.addon }}/run.sh
+
+  addon-linter:
+    runs-on: ubuntu-latest
+    name: Add-on linter
+    strategy:
+      matrix:
+        addon:
+          - certwarden-ha-client
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Run Home Assistant add-on linter
+        uses: frenck/action-addon-linter@f995494fd84fae6310d23617e66d0e37de4f14eb # v2.21.0
+        with:
+          path: "./${{ matrix.addon }}"

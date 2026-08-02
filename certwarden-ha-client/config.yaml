@@ -1,36 +1,46 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: CertWarden client for Home Assistant
-version: "1.0.0"
+version: "2.0.0"
 slug: certwarden-ha-client
-description: CertWarden client add-on to retrieve and renew certs for Home Assistant from local CertWarden service (https://www.certwarden.com)
+description: Automatically keeps the Home Assistant TLS certificate up to date from a local CertWarden service (https://www.certwarden.com)
 url: "https://github.com/Sherd21/ha-addons/tree/main/certwarden-ha-client"
 image: "ghcr.io/sherd21/{arch}-addon-certwarden-ha-client"
 arch:
-  - armhf
-  - armv7
   - aarch64
   - amd64
-  - i386
 init: false
+# 'boot' and 'stage' are deliberately absent: they would be set to their own
+# defaults (auto / stable), and the add-on linter rejects redundant keys.
+#
+# Run before Home Assistant Core, so a freshly fetched certificate is already
+# on disk by the time Core reads it. This one is not a default.
+startup: services
+# Restarting Core after installing a new certificate needs POST /core/restart.
+# The 'homeassistant' role is the least-privileged one that grants /core/.+
+hassio_api: true
+hassio_role: homeassistant
 map:
-  - ssl:rw
-ports:
-  5055/tcp: 5055
+  - type: ssl
+    read_only: false
 options:
   server: null
-  server_communication_key: null
   certificate_name: null
   key_name: null
   certificate_apikey: null
   key_apikey: null
   certificate_update_window_start: "03:00"
   certificate_update_window_end: "05:00"
+  check_interval: 10080
+  restart_home_assistant: true
+  log_level: info
 schema:
   server: 'match(^https:\/\/[^\s\/$.?#].[^\s]*$)'
-  server_communication_key: password
   certificate_name: str
   key_name: str
   certificate_apikey: password
   key_apikey: password
   certificate_update_window_start: str?
   certificate_update_window_end: str?
+  check_interval: int(5,43200)?
+  restart_home_assistant: bool?
+  log_level: list(trace|debug|info|notice|warning|error|fatal)?

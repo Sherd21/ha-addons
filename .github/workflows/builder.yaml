@@ -108,8 +108,8 @@ jobs:
 
           if [[ -n ${changed} ]]; then
             echo "Changed add-ons: $changed";
-            echo "changed=true" >> $GITHUB_OUTPUT;
-            echo "addons=[$changed]" >> $GITHUB_OUTPUT;
+            echo "changed=true" >> "$GITHUB_OUTPUT";
+            echo "addons=[$changed]" >> "$GITHUB_OUTPUT";
           else
             echo "No add-on had any monitored files changed (${MONITORED_FILES})";
           fi
@@ -147,20 +147,37 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PUBLISH: ${{ inputs.publish }}
         run: |
-          if [[ "${ADDON_IMAGE}" == "null" ]]; then
+          # The info helper reads config.yaml with `yq -o=json`, so a string value
+          # arrives wrapped in literal double quotes. Strip them: the builder action
+          # splices these args straight into a shell script, and a stray quote makes
+          # it unparseable ("unexpected EOF while looking for matching").
+          #
+          # The workflow this replaced interpolated the value into the shell
+          # unquoted, so the shell consumed the JSON quotes for us -- but that is
+          # exactly what let a crafted value inject code, which is why the value now
+          # arrives through env: instead.
+          #
+          # Never write a GitHub expression here, not even inside a comment: they are
+          # substituted before the shell sees the script, so an empty one is a parse
+          # error that invalidates the whole workflow file.
+          image="${ADDON_IMAGE%\"}"
+          image="${image#\"}"
+
+          if [[ "${image}" == "null" || -z "${image}" ]]; then
             echo "Image property is not defined, skipping build"
-            echo "build_arch=false" >> $GITHUB_OUTPUT;
+            echo "build_arch=false" >> "$GITHUB_OUTPUT";
           elif [[ "${ADDON_ARCHS}" =~ ${MATRIX_ARCH} ]]; then
-            echo "build_arch=true" >> $GITHUB_OUTPUT;
-            echo "image=$(echo "${ADDON_IMAGE}" | cut -d'/' -f3)" >> $GITHUB_OUTPUT;
+            echo "build_arch=true" >> "$GITHUB_OUTPUT";
+            # Last path segment: ghcr.io/owner/{arch}-addon-x -> {arch}-addon-x
+            echo "image=${image##*/}" >> "$GITHUB_OUTPUT";
             if [[ -z "${HEAD_REF}" ]] && [[ "${EVENT_NAME}" == "push" ]]; then
-                echo "BUILD_ARGS=" >> $GITHUB_ENV;
+                echo "BUILD_ARGS=" >> "$GITHUB_ENV";
             elif [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && [[ "${PUBLISH}" == "true" ]]; then
-                echo "BUILD_ARGS=" >> $GITHUB_ENV;
+                echo "BUILD_ARGS=" >> "$GITHUB_ENV";
             fi
           else
             echo "${MATRIX_ARCH} is not a valid arch for ${MATRIX_ADDON}, skipping build";
-            echo "build_arch=false" >> $GITHUB_OUTPUT;
+            echo "build_arch=false" >> "$GITHUB_OUTPUT";
           fi
 
       - name: Login to GitHub Container Registry

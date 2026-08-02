@@ -1,31 +1,23 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-dockerfile
 ARG BUILD_FROM
-ARG ALPINE_VERSION=3.21
-ARG GO_VERSION=1.24.2
+FROM ${BUILD_FROM}
 
-FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS build
-WORKDIR /
-COPY ./ ./src
-RUN cd /src && \
-    go build -o ./certwarden-client ./pkg/main
+# The Home Assistant base image already ships bash, curl, jq, ca-certificates,
+# tzdata and bashio. openssl is the only thing this add-on adds.
+#
+# Deliberately not version-pinned. Alpine keeps exactly one version of a package
+# per release branch, so `openssl=3.5.7-r0` would break this build the day
+# 3.5.8-r0 replaces it -- there is no version archive to fall back on. The pin
+# that matters is the base image tag in build.yaml, which bounds openssl to that
+# branch's series; letting the patch level float is what makes a rebuild pick up
+# openssl security fixes, which is what you want for a TLS tool.
+RUN apk add --no-cache openssl
 
+COPY run.sh /run.sh
 
-FROM $BUILD_FROM
-
-WORKDIR /app
-
-# timezone support
-RUN apk add --no-cache tzdata
-
-# copy app
-COPY --from=build /src/certwarden-client .
-COPY /run.sh /
-
-# https server
-EXPOSE 5055/tcp
-
-RUN set -x && \
-    chmod a+x /app/certwarden-client && \
-    chmod a+x /run.sh
+# run.sh is mode 100644 in the git index (core.filemode is false on the
+# maintainer's machine), so CI checks out a non-executable file. This chmod is
+# required, not cosmetic.
+RUN chmod a+x /run.sh
 
 CMD ["/run.sh"]

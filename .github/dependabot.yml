@@ -1,0 +1,11 @@
+version: 2
+
+# Note: the add-on's base images are pinned in certwarden-ha-client/build.yaml,
+# which Dependabot does not parse. The Dockerfile only references ${BUILD_FROM},
+# so the "docker" ecosystem has nothing to update here -- base image bumps are
+# a manual step. See https://developers.home-assistant.io/docs/add-ons/configuration
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
