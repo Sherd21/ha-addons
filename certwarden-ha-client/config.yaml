@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: CertWarden client for Home Assistant
-version: "2.0.0"
+version: "2.0.1"
 slug: certwarden-ha-client
 description: Automatically keeps the Home Assistant TLS certificate up to date from a local CertWarden service (https://www.certwarden.com)
 url: "https://github.com/Sherd21/ha-addons/tree/main/certwarden-ha-client"
@@ -19,6 +19,11 @@ startup: services
 # The 'homeassistant' role is the least-privileged one that grants /core/.+
 hassio_api: true
 hassio_role: homeassistant
+# The liveness probe before a restart calls the Core API proxy
+# (GET /core/api/), which is gated separately from the management
+# endpoints above: without this the probe gets 401 and every restart is
+# skipped as "Core is not up yet".
+homeassistant_api: true
 map:
   - type: ssl
     read_only: false
