@@ -1,8 +1,7 @@
 name: Builder
 
 env:
-  BUILD_ARGS: "--test"
-  MONITORED_FILES: "build.yaml config.yaml Dockerfile run.sh .dockerignore"
+  MONITORED_FILES: "config.yaml Dockerfile run.sh .dockerignore"
 
 on:
   push:
@@ -35,13 +34,14 @@ jobs:
     runs-on: ubuntu-latest
     name: Initialize builds
     outputs:
-      changed_addons: ${{ steps.changed_addons.outputs.addons }}
-      changed: ${{ steps.changed_addons.outputs.changed }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      changed: ${{ steps.matrix.outputs.changed }}
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Get changed files
         id: changed_files
@@ -85,117 +85,125 @@ jobs:
 
       - name: Find add-on directories
         id: addons
-        uses: home-assistant/actions/helpers/find-addons@e3fb68ebda13d88a0d695082f471ba2c83d025fb
+        uses: home-assistant/actions/helpers/find-addons@ab22029681aa532bfe7de5774a9972d67bfbd2c0
 
-      - name: Get changed add-ons
-        id: changed_addons
+      - name: Build the job matrix
+        id: matrix
         env:
           CHANGED_FILES: ${{ steps.changed_files.outputs.all }}
           ADDONS: ${{ steps.addons.outputs.addons }}
         run: |
-          declare -a changed_addons
+          # One matrix entry per add-on and architecture that needs rebuilding.
+          # Everything the build job needs is resolved here, from the add-on's
+          # own config.yaml and Dockerfile, so the build job itself is a single
+          # call to the builder action.
+          matrix='{"include":[]}'
+
           for addon in ${ADDONS}; do
+            rebuild=false
             for file in ${MONITORED_FILES}; do
               if grep -qxF "${addon}/${file}" <<< "${CHANGED_FILES}"; then
-                if [[ ! "${changed_addons[*]}" =~ ${addon} ]]; then
-                  changed_addons+=("\"${addon}\",");
-                fi
+                rebuild=true
+                break
               fi
+            done
+            if [[ "${rebuild}" == "false" ]]; then
+              continue
+            fi
+
+            image=$(yq '.image' "${addon}/config.yaml")
+            version=$(yq '.version' "${addon}/config.yaml")
+            if [[ "${image}" == "null" ]]; then
+              echo "::warning::${addon} has no image property, skipping build"
+              continue
+            fi
+
+            # Verified against the base image's Cosign signature before every
+            # push. Only a literal reference can be verified, so a Dockerfile
+            # that parameterises its base opts out rather than verifying the
+            # wrong thing.
+            base=$(awk '$1 == "FROM" { print $2; exit }' "${addon}/Dockerfile")
+            if [[ "${base}" == *'$'* ]]; then
+              base=""
+            fi
+
+            for arch in $(yq '.arch[]' "${addon}/config.yaml"); do
+              # Built natively, one runner per architecture -- the builder action
+              # takes the architecture it is told, so this mapping is what makes
+              # the image match its label.
+              case "${arch}" in
+                amd64) os="ubuntu-24.04" ;;
+                aarch64) os="ubuntu-24.04-arm" ;;
+                *)
+                  echo "::error::${addon}: unsupported architecture ${arch}"
+                  exit 1
+                  ;;
+              esac
+
+              matrix=$(jq -c \
+                --arg addon "${addon}" \
+                --arg arch "${arch}" \
+                --arg os "${os}" \
+                --arg image "${image//\{arch\}/${arch}}" \
+                --arg version "${version}" \
+                --arg base "${base}" \
+                '.include += [{
+                   addon: $addon, arch: $arch, os: $os,
+                   image: $image, version: $version, base: $base
+                 }]' <<< "${matrix}")
             done
           done
 
-          changed=$(echo "${changed_addons[@]}" | rev | cut -c 2- | rev)
+          jq . <<< "${matrix}"
 
-          if [[ -n ${changed} ]]; then
-            echo "Changed add-ons: $changed";
-            echo "changed=true" >> "$GITHUB_OUTPUT";
-            echo "addons=[$changed]" >> "$GITHUB_OUTPUT";
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          if [[ $(jq '.include | length' <<< "${matrix}") -gt 0 ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No add-on had any monitored files changed (${MONITORED_FILES})";
+            echo "No add-on had any monitored files changed (${MONITORED_FILES})"
           fi
 
   build:
     needs: init
-    runs-on: ubuntu-latest
     if: needs.init.outputs.changed == 'true'
+    runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.arch }} ${{ matrix.addon }} add-on
     strategy:
-      matrix:
-        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
-        arch: ["aarch64", "amd64"]
+      fail-fast: false
+      matrix: ${{ fromJson(needs.init.outputs.matrix) }}
     permissions:
       contents: read
       packages: write
+      # Cosign signs with a short-lived certificate issued against this job's
+      # OIDC token; there is no signing key to keep.
+      id-token: write
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4.2.2
-
-      - name: Get information
-        id: info
-        uses: home-assistant/actions/helpers/info@e3fb68ebda13d88a0d695082f471ba2c83d025fb
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
         with:
-          path: "./${{ matrix.addon }}"
-
-      - name: Check if add-on should be built
-        id: check
-        env:
-          ADDON_IMAGE: ${{ steps.info.outputs.image }}
-          ADDON_ARCHS: ${{ steps.info.outputs.architectures }}
-          MATRIX_ARCH: ${{ matrix.arch }}
-          MATRIX_ADDON: ${{ matrix.addon }}
-          HEAD_REF: ${{ github.head_ref }}
-          EVENT_NAME: ${{ github.event_name }}
-          PUBLISH: ${{ inputs.publish }}
-        run: |
-          # The info helper reads config.yaml with `yq -o=json`, so a string value
-          # arrives wrapped in literal double quotes. Strip them: the builder action
-          # splices these args straight into a shell script, and a stray quote makes
-          # it unparseable ("unexpected EOF while looking for matching").
-          #
-          # The workflow this replaced interpolated the value into the shell
-          # unquoted, so the shell consumed the JSON quotes for us -- but that is
-          # exactly what let a crafted value inject code, which is why the value now
-          # arrives through env: instead.
-          #
-          # Never write a GitHub expression here, not even inside a comment: they are
-          # substituted before the shell sees the script, so an empty one is a parse
-          # error that invalidates the whole workflow file.
-          image="${ADDON_IMAGE%\"}"
-          image="${image#\"}"
-
-          if [[ "${image}" == "null" || -z "${image}" ]]; then
-            echo "Image property is not defined, skipping build"
-            echo "build_arch=false" >> "$GITHUB_OUTPUT";
-          elif [[ "${ADDON_ARCHS}" =~ ${MATRIX_ARCH} ]]; then
-            echo "build_arch=true" >> "$GITHUB_OUTPUT";
-            # Last path segment: ghcr.io/owner/{arch}-addon-x -> {arch}-addon-x
-            echo "image=${image##*/}" >> "$GITHUB_OUTPUT";
-            if [[ -z "${HEAD_REF}" ]] && [[ "${EVENT_NAME}" == "push" ]]; then
-                echo "BUILD_ARGS=" >> "$GITHUB_ENV";
-            elif [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && [[ "${PUBLISH}" == "true" ]]; then
-                echo "BUILD_ARGS=" >> "$GITHUB_ENV";
-            fi
-          else
-            echo "${MATRIX_ARCH} is not a valid arch for ${MATRIX_ADDON}, skipping build";
-            echo "build_arch=false" >> "$GITHUB_OUTPUT";
-          fi
-
-      - name: Login to GitHub Container Registry
-        if: env.BUILD_ARGS != '--test'
-        uses: docker/login-action@v3.4.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Build ${{ matrix.addon }} add-on
-        if: steps.check.outputs.build_arch == 'true'
-        uses: home-assistant/builder@2025.03.0
+        uses: home-assistant/builder/actions/build-image@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
         with:
-          args: |
-            ${{ env.BUILD_ARGS }} \
-            --${{ matrix.arch }} \
-            --target /data/${{ matrix.addon }} \
-            --image "${{ steps.check.outputs.image }}" \
-            --docker-hub "ghcr.io/${{ github.repository_owner }}" \
-            --addon
+          arch: ${{ matrix.arch }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          context: ./${{ matrix.addon }}
+          # Refuse to build on a base image that is not the one Home Assistant
+          # signed. Skipped when the add-on opts out (empty) or when nothing is
+          # being pushed.
+          cosign-base-verify: ${{ matrix.base }}
+          cosign-base-identity: "https://github.com/home-assistant/docker-base/.*"
+          # Add-ons share this workflow, so the layer cache has to be scoped per
+          # add-on as well as per architecture.
+          cache-gha-scope: ${{ matrix.addon }}
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ matrix.version }}
+            latest
+          # `publish` is a typed boolean and must not be compared against the
+          # string 'true': GitHub coerces mixed-type comparisons to numbers, so
+          # that comparison is always false and every dispatched run would
+          # quietly build without publishing.
+          push: ${{ github.event_name == 'push' || inputs.publish }}
+          version: ${{ matrix.version }}
