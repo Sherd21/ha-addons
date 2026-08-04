@@ -1,0 +1,5 @@
+# run.sh is the entire add-on; nothing else belongs in the build context.
+# Supervisor reads icon.png, logo.png, translations/ and DOCS.md from the
+# repository, never from the image.
+*
+!run.sh

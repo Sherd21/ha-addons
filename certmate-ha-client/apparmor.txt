@@ -1,0 +1,93 @@
+#include <tunables/global>
+
+# Custom AppArmor profile for the add-on. The Supervisor detects this file,
+# loads it on the host, and rewrites the profile name below to the add-on
+# slug at install time, so the whole container runs confined by it. Shipping
+# it raises the add-on's security rating from 5 to 6, but the real point is
+# defense in depth: this container handles a TLS private key, and under this
+# profile a compromised process cannot touch anything beyond the paths listed
+# here.
+#
+# Deliberately one flat profile, not the parent/child split from the official
+# example. The add-on is a single bash script; everything the child profile
+# would confine (bash, curl, openssl, jq) is the same process tree s6-overlay
+# starts, so a split adds a transition to debug without adding isolation.
+#
+# To extend: temporarily add `complain` to the flags, run the add-on, then
+#   journalctl _TRANSPORT="audit" -g 'apparmor="ALLOWED"'
+# on the host shows every access the profile would have denied.
+profile certmate-ha-client flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  # DNS resolution plus inet/inet6 sockets, used by curl for the CertMate
+  # server and the Supervisor API.
+  #include <abstractions/nameservice>
+
+  # s6-overlay (PID 1) signals run.sh on stop; run.sh kills its own
+  # background sleep to wake early. All within this profile.
+  signal,
+
+  # s6-overlay init and supervision tree (v3 layout), which the Home
+  # Assistant base image uses to launch CMD /run.sh.
+  /init rix,
+  /package/** rix,
+  /command/** rix,
+  /run/{,**} rwk,
+  # s6-overlay v3 re-execs /init into a runtime image it assembles under
+  # /run/s6/basedir, and s6-rc execs the service scripts it copies under
+  # /run/s6-rc*/ and /run/service/. Without exec here the very first
+  # transition falls into a null profile and every descendant follows.
+  /run/{s6,s6-rc*,service}/** rix,
+  # Service definitions and legacy compatibility dirs, scanned at container
+  # start (s6-rc copies them into /run and executes them from there).
+  /etc/s6-overlay/{,**} rix,
+  /etc/services.d/{,**} rix,
+  /etc/cont-init.d/{,**} rix,
+  /etc/cont-finish.d/{,**} rix,
+  /etc/fix-attrs.d/{,**} r,
+  /dev/tty rw,
+
+  # The only binaries this add-on executes. `ix` keeps children confined by
+  # this same profile. busybox is a multi-call binary, so this one rule
+  # necessarily covers every applet (cat, mv, chmod, mktemp, ...) -- Alpine
+  # installs them as symlinks to it and AppArmor mediates the resolved
+  # target. Standalone binaries not listed here (and all of /sbin, notably
+  # apk) cannot be executed at all.
+  /bin/bash rix,
+  /bin/busybox rix,
+  /usr/bin/curl rix,
+  /usr/bin/jq rix,
+  /usr/bin/openssl rix,
+  /usr/bin/with-contenv rix,
+
+  # The bashio entry point plus its sourced modules. /usr/bin/bashio is a
+  # symlink to /usr/lib/bashio/bashio, and AppArmor mediates the resolved
+  # target, so the exec rule must live here, not on /usr/bin/bashio --
+  # dev-cycle audit showed the shebang's exec falling into a null profile
+  # when only the symlink path was allowed.
+  /usr/lib/bashio/** rix,
+
+  # The add-on's own script.
+  /run.sh rix,
+
+  # Add-on options, written by the Supervisor and read here via bashio.
+  # Read-only: this add-on never writes to /data.
+  /data/ r,
+  /data/options.json r,
+
+  # Scratch space: mktemp work dir holding the curl config (API token), curl
+  # error output, and the downloaded JSON and PEMs while they are validated.
+  /tmp/{,**} rwk,
+
+  # The certificate store. New files are staged as dotfiles next to the
+  # live pair, then renamed over it.
+  /ssl/ rw,
+  /ssl/** rw,
+
+  # CA bundle, read by curl to verify the CertMate server's TLS.
+  /etc/ssl/{,**} r,
+
+  # /proc reads by s6's supervision tree. This is the container's own PID
+  # namespace, so it only exposes this add-on's processes. A candidate for
+  # narrowing via a complain-mode audit if desired.
+  @{PROC}/{,**} r,
+}

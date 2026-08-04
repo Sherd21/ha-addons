@@ -12,5 +12,6 @@ updates:
   - package-ecosystem: "docker"
     directories:
       - "/certwarden-ha-client"
+      - "/certmate-ha-client"
     schedule:
       interval: "weekly"

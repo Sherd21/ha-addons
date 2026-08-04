@@ -7,3 +7,7 @@
 ### CertWarden client for Home Assistant
 
 Automatically keeps the Home Assistant TLS certificate up to date from a local [CertWarden](https://www.certwarden.com) service.
+
+### CertMate client for Home Assistant
+
+Automatically keeps the Home Assistant TLS certificate up to date from a local [CertMate](https://www.certmate.org) service.

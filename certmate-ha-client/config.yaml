@@ -1,0 +1,49 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
+name: CertMate client for Home Assistant
+version: "1.0.0"
+slug: certmate-ha-client
+description: Automatically keeps the Home Assistant TLS certificate up to date from a local CertMate service (https://www.certmate.org)
+# 'url' is deliberately absent. Home Assistant turns it into "Visit <name> page
+# for more details." on the add-on page, which sends people out to a web page
+# for what the Documentation tab already shows them in place.
+image: "ghcr.io/sherd21/{arch}-addon-certmate-ha-client"
+arch:
+  - aarch64
+  - amd64
+init: false
+# 'boot' and 'stage' are deliberately absent: they would be set to their own
+# defaults (auto / stable), and the add-on linter rejects redundant keys.
+#
+# Run before Home Assistant Core, so a freshly fetched certificate is already
+# on disk by the time Core reads it. This one is not a default.
+startup: services
+# Restarting Core after installing a new certificate needs POST /core/restart.
+# The 'homeassistant' role is the least-privileged one that grants /core/.+
+hassio_api: true
+hassio_role: homeassistant
+# The liveness probe before a restart calls the Core API proxy
+# (GET /core/api/), which is gated separately from the management
+# endpoints above: without this the probe gets 401 and every restart is
+# skipped as "Core is not up yet".
+homeassistant_api: true
+map:
+  - type: ssl
+    read_only: false
+options:
+  server: null
+  domain: null
+  api_token: null
+  certificate_update_window_start: "03:00"
+  certificate_update_window_end: "05:00"
+  check_interval: 10080
+  restart_home_assistant: true
+  log_level: info
+schema:
+  server: 'match(^https:\/\/[^\s\/$.?#].[^\s]*$)'
+  domain: str
+  api_token: password
+  certificate_update_window_start: str?
+  certificate_update_window_end: str?
+  check_interval: int(5,43200)?
+  restart_home_assistant: bool?
+  log_level: list(trace|debug|info|notice|warning|error|fatal)?

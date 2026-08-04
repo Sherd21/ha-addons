@@ -1,0 +1,32 @@
+configuration:
+  server:
+    name: Server
+    description: Address of the CertMate server. Must start with https and present a certificate your system trusts. (E.g. "https://certmate.example.com:8000")
+  domain:
+    name: Domain
+    description: Domain name of the certificate to retrieve, as configured in CertMate.
+  api_token:
+    name: API token
+    description: Bearer API token from CertMate's Settings -> API Keys page. It must be issued with the Operator role; a Viewer token cannot download private keys.
+  certificate_update_window_start:
+    name: Update window start time
+    description: 24-hour time when the window opens for writing key/certificate updates to disk. Ignored if no usable certificate is installed yet.
+  certificate_update_window_end:
+    name: Update window end time
+    description: 24-hour time when the window closes for writing key/certificate updates to disk.
+  check_interval:
+    name: Check interval
+    description: >-
+      How often to ask CertMate for the current certificate, in minutes.
+      Minimum 5, maximum 43200 (30 days), default 10080 (weekly).
+      Handy values: 1440 = daily, 10080 = weekly, 20160 = fortnightly.
+      Certificates are normally renewed well before they expire, so
+      checking weekly leaves plenty of margin. A new certificate found outside
+      the update window is installed when the window next opens, not at the next
+      check, so a long interval will not delay it further.
+  restart_home_assistant:
+    name: Restart Home Assistant
+    description: Restart Home Assistant Core automatically after installing a new certificate. Home Assistant only starts using a new certificate after a restart.
+  log_level:
+    name: Log level
+    description: How much detail to write to the add-on log. Use debug or trace when troubleshooting.

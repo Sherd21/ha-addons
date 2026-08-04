@@ -43,6 +43,7 @@ jobs:
       matrix:
         addon:
           - certwarden-ha-client
+          - certmate-ha-client
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7.0.1
@@ -60,6 +61,7 @@ jobs:
       matrix:
         addon:
           - certwarden-ha-client
+          - certmate-ha-client
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7.0.1
