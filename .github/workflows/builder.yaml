@@ -85,7 +85,7 @@ jobs:
 
       - name: Find add-on directories
         id: addons
-        uses: home-assistant/actions/helpers/find-addons@ab22029681aa532bfe7de5774a9972d67bfbd2c0
+        uses: home-assistant/actions/helpers/find-addons@58bff37c8947f690ace498be413a9b78d6f30f93
 
       - name: Build the job matrix
         id: matrix
