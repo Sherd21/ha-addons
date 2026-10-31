@@ -1,0 +1,94 @@
+name: Image scan
+
+# A published image never changes after release, but the system packages in it
+# keep collecting vulnerabilities. Neither Dependabot nor the base image digest
+# pin can see that -- only rebuilding picks up Alpine package fixes -- so this
+# scans what users actually run, the released version of each add-on, and fails
+# when a fix exists. A failed scheduled run emails the repository owner. The fix
+# is to bump the add-on's version so it is rebuilt.
+
+on:
+  schedule:
+    # Weekly, Monday morning UTC, off the hour to avoid the scheduler rush.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    name: Find released images
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the job matrix
+        id: matrix
+        run: |
+          # One entry per add-on and architecture, resolved from config.yaml the
+          # same way the builder resolves what to publish.
+          matrix='{"include":[]}'
+
+          for config in */config.yaml; do
+            addon="${config%/config.yaml}"
+            image=$(yq '.image' "${config}")
+            version=$(yq '.version' "${config}")
+            if [[ "${image}" == "null" ]]; then
+              continue
+            fi
+
+            for arch in $(yq '.arch[]' "${config}"); do
+              # The images are published as multi-platform indexes, and Trivy
+              # otherwise looks for the runner's own platform: an aarch64 image
+              # then fails with "no child with platform linux/amd64".
+              case "${arch}" in
+                amd64) platform="linux/amd64" ;;
+                aarch64) platform="linux/arm64" ;;
+                *)
+                  echo "::error::${addon}: unsupported architecture ${arch}"
+                  exit 1
+                  ;;
+              esac
+
+              matrix=$(jq -c \
+                --arg addon "${addon}" \
+                --arg arch "${arch}" \
+                --arg platform "${platform}" \
+                --arg ref "${image//\{arch\}/${arch}}:${version}" \
+                '.include += [{
+                   addon: $addon, arch: $arch, platform: $platform, ref: $ref
+                 }]' <<< "${matrix}")
+            done
+          done
+
+          jq . <<< "${matrix}"
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+  scan:
+    needs: init
+    runs-on: ubuntu-latest
+    name: Scan ${{ matrix.arch }} ${{ matrix.addon }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.init.outputs.matrix) }}
+    steps:
+      - name: Scan ${{ matrix.ref }}
+        # Pinned by commit: 76 of this action's 77 release tags were
+        # force-pushed to malware in March 2026 (CVE-2026-33634).
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_PLATFORM: ${{ matrix.platform }}
+        with:
+          image-ref: ${{ matrix.ref }}
+          scanners: vuln
+          vuln-type: os
+          # Only what a rebuild can fix is actionable here.
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: "1"
