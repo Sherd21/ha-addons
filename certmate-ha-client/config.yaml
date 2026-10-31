@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: CertMate client for Home Assistant
-version: "1.0.0"
+version: "1.0.1"
 slug: certmate-ha-client
 description: Automatically keeps the Home Assistant TLS certificate up to date from a local CertMate service (https://www.certmate.org)
 # 'url' is deliberately absent. Home Assistant turns it into "Visit <name> page
