@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: CertWarden client for Home Assistant
-version: "2.0.1"
+version: "2.0.2"
 slug: certwarden-ha-client
 description: Automatically keeps the Home Assistant TLS certificate up to date from a local CertWarden service (https://www.certwarden.com)
 url: "https://github.com/Sherd21/ha-addons/tree/main/certwarden-ha-client"
