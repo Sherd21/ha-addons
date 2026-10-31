@@ -38,15 +38,20 @@ You will need four values:
 
 ## Enable SSL in Home Assistant
 
-If this is your first time using certificates with Home Assistant, add the following to your _**configuration.yaml**_:
+If this is your first time using certificates with Home Assistant, start the add-on first so the certificate is in `/ssl`, then:
 
-```yaml
-http:
-  ssl_certificate: /ssl/fullchain.pem
-  ssl_key: /ssl/privkey.pem
-```
+1. Go to [**Settings** > **System** > **Network**](https://my.home-assistant.io/redirect/network) and find the **HTTP server** section.
+2. Under **SSL/TLS**, set **SSL certificate path** to `/ssl/fullchain.pem` and **SSL key path** to `/ssl/privkey.pem`.
+3. Save. Home Assistant restarts and is then only reachable over `https://`. Open it at `https://` and confirm the new settings within 5 minutes, or Home Assistant reverts to the previous ones.
 
-The easiest way to edit it is with the [Studio Code Server](https://github.com/hassio-addons/addon-vscode) add-on.
+> [!NOTE]
+> Before Home Assistant 2026.8, these settings went in an `http:` block in `configuration.yaml`. On upgrade, Home Assistant imports that block automatically, and from 2027.2 it is ignored. Once the paths appear under **HTTP server**, remove the block. On versions older than 2026.8, use the block instead:
+>
+> ```yaml
+> http:
+>   ssl_certificate: /ssl/fullchain.pem
+>   ssl_key: /ssl/privkey.pem
+> ```
 
 ## Migrating from 1.x
 
