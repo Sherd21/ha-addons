@@ -10,6 +10,7 @@
 - fix(security): bumped jq from 1.8.1 to 1.8.2
 - fix(security): updated the remaining Alpine system packages, clearing 210
   known vulnerabilities (1 critical, 60 high)
+- docs: SSL setup now uses Settings > System > Network (Home Assistant 2026.8+)
 
 ## 1.0.0
 
