@@ -11,7 +11,13 @@
 # the 64-bit architectures -- armhf, armv7 and i386 stop at 3.22 and Supervisor
 # reports all three as deprecated -- so dropping them is what allows this to
 # track the current base instead of being held back at 3.22.
-FROM ghcr.io/home-assistant/base:3.24
+#
+# Pinned by digest as well as tag. Home Assistant re-releases 3.24 under the
+# same tag (2026.06.1 through 2026.10.3 so far), and Dependabot cannot see a
+# tag move, so an image rebuilt on a tag alone silently picks up whatever the
+# base is that day and a stale one goes unnoticed. With the digest here, each
+# base re-release arrives as a Dependabot PR. This digest is 3.24-2026.10.3.
+FROM ghcr.io/home-assistant/base:3.24@sha256:880016115f356afc814398e17ba68a7ee66dfc1b4eaef09755ea2c9fa18ea481
 
 # The Home Assistant base image already ships bash, curl, jq, ca-certificates,
 # tzdata and bashio. openssl is the only thing this add-on adds.
