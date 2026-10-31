@@ -206,4 +206,11 @@ jobs:
           # that comparison is always false and every dispatched run would
           # quietly build without publishing.
           push: ${{ github.event_name == 'push' || inputs.publish }}
+          # A released version is immutable. Base image bumps change the
+          # Dockerfile without touching the version, and an image published
+          # ahead of time by a manual run is pushed again when main catches up;
+          # either would otherwise overwrite the existing tag. If this version
+          # is already in the registry the image is still built, so breakage is
+          # caught, but nothing is pushed or signed. Bump the version to ship.
+          skip-existing: ${{ matrix.version }}
           version: ${{ matrix.version }}
